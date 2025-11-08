@@ -147,7 +147,7 @@ def astar(draw: callable, grid: Grid, start: Spot, end: Spot) -> bool:
     return False
 
 
-def depth_limited_search(draw, grid: Grid, current: Spot, end: Spot, came_from: dict, limit: int, depth: int = 0) -> bool:
+def depth_limited_search(draw, grid: Grid, current: Spot, end: Spot, came_from: dict, visited:set, limit: int, depth: int = 0) -> bool:
     draw()
 
     if current==end:
@@ -158,24 +158,28 @@ def depth_limited_search(draw, grid: Grid, current: Spot, end: Spot, came_from: 
     if depth>=limit:
         return False
 
+    visited.add(current)
+
     for neighbor in current.neighbors:
         if neighbor not in came_from and not neighbor.is_barrier():
             came_from[neighbor]=current
             neighbor.make_open()
-            if depth_limited_search(draw, grid, neighbor, end, came_from, limit, depth+1):
+            if depth_limited_search(draw, grid, neighbor, end, came_from, visited, limit, depth+1):
                 return True
             neighbor.make_closed()
+            draw()
 
     return False
 
 
-def dls(draw: callable, grid: Grid, start: Spot, end: Spot, limit: int=100) -> bool:
+def dls(draw: callable, grid: Grid, start: Spot, end: Spot, limit: int=50) -> bool:
     for row in grid.grid:
         for spot in row:
             spot.update_neighbors(grid.grid)
 
     came_from={}
-    success=depth_limited_search(draw, grid, start, end, came_from, limit)
+    visited=set()
+    success=depth_limited_search(draw, grid, start, end, came_from, visited, limit)
     start.make_start()
     end.make_end()
     return success
@@ -263,20 +267,21 @@ def greedy(draw: callable, grid: Grid, start: Spot, end: Spot, heuristic=h_eucli
     return False
 
 
-def iddfs(draw: callable, grid: Grid, start: Spot, end: Spot, max_depth: int=200) -> bool:
+def iddfs(draw: callable, grid: Grid, start: Spot, end: Spot, max_depth: int=100) -> bool:
     for depth in range(max_depth+1):
         for row in grid.grid:
             for spot in row:
                 spot.update_neighbors(grid.grid)
         came_from={}
-        if depth_limited_search(draw, grid, start, end, came_from, depth):
+        visited=set()
+        if depth_limited_search(draw, grid, start, end, came_from, visited, depth):
             start.make_start()
             end.make_end()
             return True
     return False
 
 
-def ida(draw: callable, grid: Grid, start: Spot, end: Spot, heuristic=h_manhattan_distance) -> bool:
+def ida(draw: callable, grid: Grid, start: Spot, end: Spot, heuristic=h_manhattan_distance)->bool:
     if start==end:
         return True
 
@@ -284,38 +289,92 @@ def ida(draw: callable, grid: Grid, start: Spot, end: Spot, heuristic=h_manhatta
         for spot in row:
             spot.update_neighbors(grid.grid)
 
-    def search(current, g, bound, came_from):
+    path_found = False
+    final_path = []
+
+    def search(current: Spot, g: float, bound: float, path: list)->float:
+        nonlocal path_found, final_path
+
+        for event in pygame.event.get():
+            if event.type==pygame.QUIT:
+                return float('inf')
+
         f=g+heuristic(current.get_position(), end.get_position())
+
         if f>bound:
             return f
-        if current==end:
-            reconstruct_path(came_from, end, draw)
-            end.make_end()
-            start.make_start()
-            return True
 
-        min_bound=float("inf")
+        if current==end:
+            path_found=True
+            final_path=path.copy()
+            return f
+
+        min_bound = float('inf')
+
         for neighbor in current.neighbors:
-            if neighbor.is_barrier() or neighbor in came_from:
+            if neighbor.is_barrier() or neighbor in path:
                 continue
-            came_from[neighbor]=current
-            neighbor.make_open()
+
+            new_path=path+[neighbor]
+
+            if neighbor!=end:
+                neighbor.make_open()
             draw()
-            result=search(neighbor, g+1, bound, came_from)
-            if result is True:
-                return True
-            if isinstance(result, (int, float)) and result<min_bound:
+            pygame.time.delay(10)
+
+            result=search(neighbor, g + 1, bound, new_path)
+
+            if path_found:
+                return result
+
+            if result<min_bound:
                 min_bound=result
-            neighbor.make_closed()
-            came_from.pop(neighbor, None)
+
+            if neighbor!=start and neighbor!=end:
+                neighbor.reset()
+            draw()
+            pygame.time.delay(5)
+
         return min_bound
 
     bound=heuristic(start.get_position(), end.get_position())
-    while True:
-        came_from={start: None}
-        result=search(start, 0, bound, came_from)
-        if result is True:
+    start.make_start()
+    end.make_end()
+
+    max_iterations=100
+
+    for iteration in range(max_iterations):
+        path_found = False
+        final_path=[]
+
+        for row in grid.grid:
+            for spot in row:
+                if not spot.is_start() and not spot.is_end() and not spot.is_barrier():
+                    spot.reset()
+
+        start.make_start()
+        end.make_end()
+        draw()
+
+        result=search(start, 0, bound, [start])
+
+        if path_found:
+            for spot in final_path[1:-1]:  # Exclude start și end
+                spot.make_path()
+                draw()
+                pygame.time.delay(30)
+            end.make_end()
             return True
-        if result==float("inf"):
+
+        if result == float('inf'):
+            print("No path found!")
             return False
+
         bound=result
+
+        if bound>1000:
+            print("Bound to big")
+            return False
+
+    print("Max iterations reached")
+    return False
