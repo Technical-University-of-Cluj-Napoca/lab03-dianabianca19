@@ -1,5 +1,4 @@
 from itertools import count
-
 from utils import *
 from collections import deque
 from queue import PriorityQueue
@@ -7,29 +6,24 @@ from grid import Grid
 from spot import Spot
 import math
 
-def reconstruct_path(came_from:dict, current:Spot, draw:callable):
+
+def reconstruct_path(came_from: dict, current: Spot, draw: callable):
     while current in came_from:
         current=came_from[current]
         current.make_path()
         draw()
 
+
 def bfs(draw: callable, grid: Grid, start: Spot, end: Spot) -> bool:
-    """
-    Breadth-First Search (BFS) Algorithm.
-    Args:
-        draw (callable): A function to call to update the Pygame window.
-        grid (Grid): The Grid object containing the spots.
-        start (Spot): The starting spot.
-        end (Spot): The ending spot.
-    Returns:
-        bool: True if a path is found, False otherwise.
-    """
+    if start==end:
+        return True
+
     for row in grid.grid:
         for spot in row:
             spot.update_neighbors(grid.grid)
 
     queue=deque([start])
-    came_from={}
+    came_from ={}
     visited={start}
 
     while queue:
@@ -38,6 +32,7 @@ def bfs(draw: callable, grid: Grid, start: Spot, end: Spot) -> bool:
 
         if current==end:
             reconstruct_path(came_from, end, draw)
+            end.make_end()
             start.make_start()
             return True
 
@@ -53,17 +48,11 @@ def bfs(draw: callable, grid: Grid, start: Spot, end: Spot) -> bool:
 
     return False
 
+
 def dfs(draw: callable, grid: Grid, start: Spot, end: Spot) -> bool:
-    """
-    Depdth-First Search (DFS) Algorithm.
-    Args:
-        draw (callable): A function to call to update the Pygame window.
-        grid (Grid): The Grid object containing the spots.
-        start (Spot): The starting spot.
-        end (Spot): The ending spot.
-    Returns:
-        bool: True if a path is found, False otherwise.
-    """
+    if start==end:
+        return True
+
     for row in grid.grid:
         for spot in row:
             spot.update_neighbors(grid.grid)
@@ -96,57 +85,34 @@ def dfs(draw: callable, grid: Grid, start: Spot, end: Spot) -> bool:
 
 
 def h_manhattan_distance(p1: tuple[int, int], p2: tuple[int, int]) -> float:
-    """
-    Heuristic function for A* algorithm: uses the Manhattan distance between two points.
-    Args:
-        p1 (tuple[int, int]): The first point (x1, y1).
-        p2 (tuple[int, int]): The second point (x2, y2).
-    Returns:
-        float: The Manhattan distance between p1 and p2.
-    """
-    x1, y1 = p1
-    x2, y2 = p2
+    x1, y1=p1
+    x2, y2=p2
     return abs(x1-x2)+abs(y1-y2)
 
 
 def h_euclidian_distance(p1: tuple[int, int], p2: tuple[int, int]) -> float:
-    """
-    Heuristic function for A* algorithm: uses the Euclidian distance between two points.
-    Args:
-        p1 (tuple[int, int]): The first point (x1, y1).
-        p2 (tuple[int, int]): The second point (x2, y2).
-    Returns:
-        float: The Manhattan distance between p1 and p2.
-    """
-    x1, y1 = p1
-    x2, y2 = p2
+    x1, y1=p1
+    x2, y2=p2
     return math.sqrt((x1-x2)**2+(y1-y2)**2)
 
 
 def astar(draw: callable, grid: Grid, start: Spot, end: Spot) -> bool:
-    """
-    A* Pathfinding Algorithm.
-    Args:
-        draw (callable): A function to call to update the Pygame window.
-        grid (Grid): The Grid object containing the spots.
-        start (Spot): The starting spot.
-        end (Spot): The ending spot.
-    Returns:
-        bool: True if a path is found, False otherwise.
-    """
+    if start==end:
+        return True
+
     for row in grid.grid:
         for spot in row:
             spot.update_neighbors(grid.grid)
 
-    count=0
+    counter=count()
     open_set=PriorityQueue()
-    open_set.put((0, count, start))
+    open_set.put((0, next(counter), start))
     came_from={}
 
-    g_score={spot:float("inf") for row in grid.grid for spot in row}
+    g_score={spot: float("inf") for row in grid.grid for spot in row}
     g_score[start]=0
 
-    f_score={spot:float("inf") for row in grid.grid for spot in row}
+    f_score={spot: float("inf") for row in grid.grid for spot in row}
     f_score[start]=h_manhattan_distance(start.get_position(), end.get_position())
 
     open_set_hash={start}
@@ -154,9 +120,7 @@ def astar(draw: callable, grid: Grid, start: Spot, end: Spot) -> bool:
     while not open_set.empty():
         draw()
         current=open_set.get()[2]
-
-        if current in open_set_hash:
-            open_set_hash.remove(current)
+        open_set_hash.discard(current)
 
         if current==end:
             reconstruct_path(came_from, end, draw)
@@ -173,8 +137,7 @@ def astar(draw: callable, grid: Grid, start: Spot, end: Spot) -> bool:
                 f_score[neighbor]=temp_g_score+h_manhattan_distance(neighbor.get_position(), end.get_position())
 
                 if neighbor not in open_set_hash:
-                    count=count+1
-                    open_set.put((f_score[neighbor], count, neighbor))
+                    open_set.put((f_score[neighbor], next(counter), neighbor))
                     open_set_hash.add(neighbor)
                     neighbor.make_open()
 
@@ -183,10 +146,8 @@ def astar(draw: callable, grid: Grid, start: Spot, end: Spot) -> bool:
 
     return False
 
-def depth_limited_search(draw, grid: Grid, current: Spot, end: Spot, came_from: dict, limit: int, depth: int=0)->bool:
 
-    """recursive helper function for dls"""
-
+def depth_limited_search(draw, grid: Grid, current: Spot, end: Spot, came_from: dict, limit: int, depth: int = 0) -> bool:
     draw()
 
     if current==end:
@@ -207,32 +168,38 @@ def depth_limited_search(draw, grid: Grid, current: Spot, end: Spot, came_from: 
 
     return False
 
-def dls(draw: callable, grid: Grid, start: Spot, end: Spot, limit: int=10)->bool:
+
+def dls(draw: callable, grid: Grid, start: Spot, end: Spot, limit: int=100) -> bool:
     for row in grid.grid:
         for spot in row:
             spot.update_neighbors(grid.grid)
 
     came_from={}
     success=depth_limited_search(draw, grid, start, end, came_from, limit)
-    start.make_end()
+    start.make_start()
     end.make_end()
     return success
 
-def ucs(draw: callable, grid: Grid, start: Spot, end: Spot)->bool:
+
+def ucs(draw: callable, grid: Grid, start: Spot, end: Spot) -> bool:
+    if start==end:
+        return True
+
     for row in grid.grid:
         for spot in row:
             spot.update_neighbors(grid.grid)
 
     pq=PriorityQueue()
-    pq.put((0, start))
+    tie=count()
+    pq.put((0, next(tie), start))
     came_from={}
-    cost={spot:float("inf") for row in grid.grid for spot in row}
+    cost={spot: float("inf") for row in grid.grid for spot in row}
     cost[start]=0
     visited=set()
 
     while not pq.empty():
         draw()
-        current_cost, current=pq.get()
+        current_cost, _, current=pq.get()
         if current in visited:
             continue
 
@@ -249,18 +216,106 @@ def ucs(draw: callable, grid: Grid, start: Spot, end: Spot)->bool:
             if new_cost<cost[neighbor]:
                 cost[neighbor]=new_cost
                 came_from[neighbor]=current
-                pq.put((new_cost, neighbor))
+                pq.put((new_cost, next(tie), neighbor))
                 neighbor.make_open()
 
-            if current!=start:
-                current.make_closed()
+        if current!=start:
+            current.make_closed()
 
     return False
 
 
-# Depth-Limited Search (DLS)
-# ▢ Uninformed Cost Search (UCS)
-# ▢ Greedy Search
-# ▢ Iterative Deepening Search/Iterative Deepening Depth-First Search (IDS/IDDFS)
-# ▢ Iterative Deepening A* (IDA)
-# Assume that each edge (graph weight) equalss
+def greedy(draw: callable, grid: Grid, start: Spot, end: Spot, heuristic=h_euclidian_distance) -> bool:
+    if start==end:
+        return True
+
+    for row in grid.grid:
+        for spot in row:
+            spot.update_neighbors(grid.grid)
+
+    pq=PriorityQueue()
+    tie=count()
+    pq.put((heuristic(start.get_position(), end.get_position()), next(tie), start))
+    came_from={}
+    visited={start}
+
+    while not pq.empty():
+        draw()
+        _, _, current=pq.get()
+
+        if current==end:
+            reconstruct_path(came_from, end, draw)
+            end.make_end()
+            start.make_start()
+            return True
+
+        for neighbor in current.neighbors:
+            if neighbor not in visited and not neighbor.is_barrier():
+                visited.add(neighbor)
+                came_from[neighbor]=current
+                priority=heuristic(neighbor.get_position(), end.get_position())
+                pq.put((priority, next(tie), neighbor))
+                neighbor.make_open()
+
+        if current!=start:
+            current.make_closed()
+
+    return False
+
+
+def iddfs(draw: callable, grid: Grid, start: Spot, end: Spot, max_depth: int=200) -> bool:
+    for depth in range(max_depth+1):
+        for row in grid.grid:
+            for spot in row:
+                spot.update_neighbors(grid.grid)
+        came_from={}
+        if depth_limited_search(draw, grid, start, end, came_from, depth):
+            start.make_start()
+            end.make_end()
+            return True
+    return False
+
+
+def ida(draw: callable, grid: Grid, start: Spot, end: Spot, heuristic=h_manhattan_distance) -> bool:
+    if start==end:
+        return True
+
+    for row in grid.grid:
+        for spot in row:
+            spot.update_neighbors(grid.grid)
+
+    def search(current, g, bound, came_from):
+        f=g+heuristic(current.get_position(), end.get_position())
+        if f>bound:
+            return f
+        if current==end:
+            reconstruct_path(came_from, end, draw)
+            end.make_end()
+            start.make_start()
+            return True
+
+        min_bound=float("inf")
+        for neighbor in current.neighbors:
+            if neighbor.is_barrier() or neighbor in came_from:
+                continue
+            came_from[neighbor]=current
+            neighbor.make_open()
+            draw()
+            result=search(neighbor, g+1, bound, came_from)
+            if result is True:
+                return True
+            if isinstance(result, (int, float)) and result<min_bound:
+                min_bound=result
+            neighbor.make_closed()
+            came_from.pop(neighbor, None)
+        return min_bound
+
+    bound=heuristic(start.get_position(), end.get_position())
+    while True:
+        came_from={start: None}
+        result=search(start, 0, bound, came_from)
+        if result is True:
+            return True
+        if result==float("inf"):
+            return False
+        bound=result
