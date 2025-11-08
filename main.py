@@ -1,5 +1,6 @@
 from utils import *
 from grid import Grid
+import pygame
 from searching_algorithms import *
 
 if __name__ == "__main__":
